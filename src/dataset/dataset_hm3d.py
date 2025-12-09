@@ -39,6 +39,8 @@ class DatasetHM3DCfg(DatasetCfgCommon):
     baseline_scale_bounds: bool = True
     shuffle_val: bool = True
     debug: bool = False
+    stage_dirs: dict[str, str] | None = None
+    enable_val: bool = True
 
 class DatasetHM3D(IterableDataset):
     cfg: DatasetHM3DCfg
@@ -77,11 +79,24 @@ class DatasetHM3D(IterableDataset):
         # TODO: cfg.rgb_roots
         assert len(cfg.rgb_roots) == len(cfg.roots)
         for root_idx, root in enumerate(cfg.roots):
-            rgb_dir = cfg.rgb_roots[root_idx] / self.data_stage 
-            root = root / self.data_stage           
-            root_chunks = sorted(
-                [path for path in root.iterdir() if path.suffix == ".torch"]
-            )
+            stage_key = self.stage
+            stage_dir = self.data_stage
+            if cfg.stage_dirs is not None:
+                stage_dir = cfg.stage_dirs.get(stage_key, stage_dir)
+            rgb_dir = cfg.rgb_roots[root_idx] / stage_dir
+            root_path = root / stage_dir
+            try:
+                root_chunks = sorted(
+                    [path for path in root_path.iterdir() if path.suffix == ".torch"]
+                )
+            except FileNotFoundError:
+                fallback = "train"
+                root_path = root / fallback
+                rgb_dir = cfg.rgb_roots[root_idx] / fallback
+                root_chunks = sorted(
+                    [path for path in root_path.iterdir() if path.suffix == ".torch"]
+                )
+            root = root_path
             self.chunks.extend(root_chunks)
             self.rgb_dirs[str(root)] = rgb_dir
             

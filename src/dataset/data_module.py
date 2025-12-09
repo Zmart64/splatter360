@@ -101,6 +101,9 @@ class DataModule(LightningDataModule):
         )
 
     def val_dataloader(self):
+        if hasattr(self.dataset_cfg, "enable_val") and not getattr(self.dataset_cfg, "enable_val"):
+            print("[DataModule] Validation disabled; returning empty list.")
+            return []
         dataset = get_dataset(self.dataset_cfg, "val", self.step_tracker)
         dataset = self.dataset_shim(dataset, "val")
         return DataLoader(

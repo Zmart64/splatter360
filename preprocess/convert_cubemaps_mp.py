@@ -15,10 +15,11 @@ import math
 import multiprocessing
 
 down_rate = 1
-dataset_name = "replica"
-basedir = "/wudang_vuc_3dc_afs/chenzheng"
+dataset_name = "my360"
+basedir = "/srv/store/docker-users/thesis/marten1/data"
 dataset = dataset_name + "_dataset"
-INPUT_IMAGE_DIR = Path(basedir + "/" + dataset)
+INPUT_IMAGE_DIR = Path(basedir) / dataset
+INPUT_METADATA_DIR = INPUT_IMAGE_DIR
 
 
 # Target 100 MB per chunk.
@@ -209,22 +210,29 @@ def worker_func(cfg, stage, keys, num_worker, worker_index):
             torch.save(example, scene_dir / "meta.pt")
 
 if __name__ == "__main__":
-    # 等待子进程结束以后再继续往下运行，通常用于进程间的同步
     cfg = {
         "height": 512,
         "width": 1024,
     }
 
-    stage = "test"
-    keys = sorted(os.listdir(INPUT_IMAGE_DIR / stage))
-    num_worker = 32
+    stage = "train"
+    stage_dir = INPUT_IMAGE_DIR / stage
+    if not stage_dir.exists():
+        raise FileNotFoundError(f"{stage_dir} does not exist.")
+    keys = sorted(os.listdir(stage_dir))
+    if not keys:
+        print(f"[convert_cubemaps_mp] No scenes found under {stage_dir}")
+        sys.exit(0)
+    num_worker = min(8, len(keys) or 1)
     processes = []
 
     for worker_index in range(num_worker):
-        p = multiprocessing.Process(target=worker_func, args=(cfg, stage, keys, \
-            num_worker, worker_index, ))
-        p.start()                 # 用start()方法启动进程，执行worker_func()方法
+        p = multiprocessing.Process(
+            target=worker_func,
+            args=(cfg, stage, keys, num_worker, worker_index),
+        )
+        p.start()
         processes.append(p)
 
     for p in processes:
-        p.join() # p.join()
+        p.join()
